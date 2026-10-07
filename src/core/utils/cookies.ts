@@ -3,7 +3,16 @@ import {
   getCookieExpiration,
   generateCookie,
 } from "payload"
+import * as payloadExports from "payload"
 import type { SanitizedCollectionConfig } from "payload"
+
+// Payload >= 3.90 requires this in the signed protected header and rejects any
+// token without it. It only exports the constant from that version onwards, so
+// read it off the namespace and fall back to the literal rather than naming it
+// in the import — a named import would break the ^3.0.0 peer range. Earlier
+// versions simply ignore the extra header field.
+const JWT_AUTH_VERSION: number =
+  (payloadExports as { JWT_AUTH_VERSION?: number }).JWT_AUTH_VERSION ?? 1
 
 export async function createSessionCookies(
   name: string,
@@ -22,7 +31,7 @@ export async function createSessionCookies(
   const issuedAt = Math.floor(Date.now() / 1000)
   const exp = issuedAt + tokenExpiration
   const token = await new jwt.SignJWT(fieldsToSign)
-    .setProtectedHeader({ alg: "HS256", typ: "JWT" })
+    .setProtectedHeader({ alg: "HS256", authVersion: JWT_AUTH_VERSION, typ: "JWT" })
     .setIssuedAt(issuedAt)
     .setExpirationTime(exp)
     .sign(secretKey)
