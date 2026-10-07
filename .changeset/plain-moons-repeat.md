@@ -2,6 +2,11 @@
 "payload-auth-plugin": patch
 ---
 
-Include `authVersion` in the JWT protected header so sessions authenticate against Payload 3.90+
+Make issued sessions authenticate against Payload 3.90+
 
-Payload 3.90 added a version marker to its JWT protected header and rejects any token without it, so every session cookie this plugin issues fails to authenticate on that version. The value is read from Payload when available and falls back to the literal, keeping the `^3.0.0` peer range intact — older versions ignore the extra header field.
+Payload 3.90 hardened its JWT handling in two ways that reject every cookie this plugin issues:
+
+- the signed protected header must carry `authVersion`, which is now set (read from Payload when available, falling back to the literal so the `^3.0.0` peer range is unaffected — older versions ignore the extra field)
+- claim shapes are validated, and a `sid` that is present but not a string drops the whole token. `OAuthAuthentication` signs `sid: useSessions ? uuid() : null`, so a null reaches the signer whenever sessions are disabled. Empty claims are now omitted.
+
+Either one alone leaves the user unauthenticated on every request after a successful sign-in.

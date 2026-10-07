@@ -30,7 +30,14 @@ export async function createSessionCookies(
   const secretKey = new TextEncoder().encode(secret)
   const issuedAt = Math.floor(Date.now() / 1000)
   const exp = issuedAt + tokenExpiration
-  const token = await new jwt.SignJWT(fieldsToSign)
+  // OAuthAuthentication signs `sid: useSessions ? uuid() : null`, so a session id
+  // of null reaches here whenever sessions are disabled. Payload >= 3.90 validates
+  // claim shapes and rejects a token whose sid is present but not a string, which
+  // null is not — dropping empty claims keeps the token well formed either way.
+  const definedFields = Object.fromEntries(
+    Object.entries(fieldsToSign).filter(([, value]) => value !== null && value !== undefined),
+  )
+  const token = await new jwt.SignJWT(definedFields)
     .setProtectedHeader({ alg: "HS256", authVersion: JWT_AUTH_VERSION, typ: "JWT" })
     .setIssuedAt(issuedAt)
     .setExpirationTime(exp)
